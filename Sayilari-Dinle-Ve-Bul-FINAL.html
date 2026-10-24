@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sayıları Dinle ve Yaz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&family=Playfair+Display:ital,wght@0,700;1,700&display=swap&subset=latin,latin-ext" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --primary: #f43f5e;
+            --secondary: #3b82f6;
+            --accent: #f59e0b;
+            --text-main: #f8fafc;
+        }
+
+        *{box-sizing:border-box}
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Montserrat', sans-serif;
+            color: var(--text-main);
+            user-select: none;
+        }
+
+        h1, h2, .playfair { font-family: 'Playfair Display', serif; }
+
+        /* ==== KRİTİK: Görünmez katmanlar asla tıklamayı engellemesin ==== */
+        /* Sadece dekoratif / overlay katmanlarda kullanıyoruz, butonlarda ASLA kullanmıyoruz */
+        .bg-shapes,
+        .confetti-container,
+        .logo-container,
+        .side-deco,
+        .bg-grid {
+            pointer-events: none !important;
+        }
+
+        .bg-shapes {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            z-index: 0;
+        }
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.45;
+            animation: float 18s infinite alternate ease-in-out;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(8vw, 12vh) scale(1.15); }
+            100% { transform: translate(-8vw, 18vh) scale(0.92); }
+        }
+        .bg-grid{
+            position:fixed;
+            inset:0;
+            z-index:0;
+            opacity:0.06;
+            background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0);
+            background-size: 42px 42px;
+        }
+
+        /* ==== LOGO: sol üstte sabit, orjinal.svg ==== */
+        .logo-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 60;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            /* pointer-events: none yukarıda tanımlı */
+        }
+        .logo-container img {
+            width: clamp(112px, 11vw, 172px);
+            height: auto;
+            display: block;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 14px rgba(0,0,0,0.35));
+            pointer-events: none; /* logo da tıklamayı engellemesin */
+        }
+
+        /* Üst sağ buton - tıklanabilir olmalı */
+        .top-actions{
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 55;
+            pointer-events: auto;
+        }
+
+        .confetti-container {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            overflow: hidden;
+        }
+        .confetti {
+            position: absolute;
+            top: -20px;
+            width: 14px;
+            height: 28px;
+            background-color: var(--primary);
+            animation: fall linear forwards;
+        }
+        @keyframes fall { to { transform: translateY(115vh) rotate(720deg); } }
+
+        /* ==== YENİ LAYOUT: Yanları dolduran tam ekran ==== */
+        .app-shell{
+            position: relative;
+            z-index: 10;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 22vw minmax(0, 1fr) 22vw;
+            align-items: stretch;
+        }
+        /* Orta alan - oyun */
+        .center-stage{
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            pointer-events: auto;
+        }
+        .center-stage::-webkit-scrollbar{width:0}
+
+        /* Yanlar */
+        .side{
+            position: relative;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 90px 24px 40px;
+            pointer-events: none; /* yan dekorlar tıklamayı engellemesin */
+        }
+        .side-deco{
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            line-height: 0.85;
+            letter-spacing: -0.06em;
+            opacity: 0.07;
+            color: white;
+            user-select: none;
+        }
+        .side-left .side-deco{
+            font-size: clamp(64px, 9vw, 132px);
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+        }
+        .side-right .side-deco{
+            font-size: clamp(48px, 7vw, 110px);
+        }
+        .side-card{
+            margin-top: 28px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            padding: 16px 18px;
+            pointer-events: none;
+        }
+        .side-card b{ color: var(--accent); }
+
+        /* Responsive: tablet/mobilde yanları gizle, ortaya tam genişlik ver */
+        @media (max-width: 1100px){
+            .app-shell{
+                grid-template-columns: 1fr;
+            }
+            .side{ display:none; }
+        }
+
+        /* Kutu - BÜYÜTÜLDÜ, ekranı dolduruyor */
+        .number-box {
+            width: clamp(320px, 44vmin, 640px);
+            height: clamp(320px, 44vmin, 640px);
+            perspective: 1200px;
+            margin: 0 auto;
+            pointer-events: auto;
+        }
+        .number-box-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.85s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .number-box.open .number-box-inner { transform: rotateY(180deg); }
+        .number-box-front, .number-box-back {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2.2rem;
+            box-shadow: 0 28px 70px -12px rgba(0, 0, 0, 0.6);
+        }
+        .number-box-front {
+            background: linear-gradient(135deg, var(--secondary), #1e3a8a);
+            border: 4px solid rgba(255, 255, 255, 0.22);
+            font-size: clamp(4rem, 10vmin, 7rem);
+            color: rgba(255,255,255,0.55);
+        }
+        .number-box-back {
+            background: linear-gradient(135deg, var(--accent), #b45309);
+            border: 4px solid #fff;
+            transform: rotateY(180deg);
+            font-size: clamp(5rem, 14vmin, 10rem);
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 10px 24px rgba(0,0,0,0.35);
+        }
+
+        .btn-custom {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            pointer-events: auto !important;
+            cursor: pointer;
+            z-index: 20;
+        }
+        .btn-custom:hover { transform: translateY(-3px); box-shadow: 0 16px 34px -8px rgba(0,0,0,0.45); }
+        .btn-custom:active { transform: translateY(1px); }
+
+        .timer-text {
+            font-size: clamp(3.5rem, 9vmin, 6rem);
+            font-weight: 900;
+            color: var(--primary);
+            text-shadow: 0 0 22px rgba(244, 63, 94, 0.5);
+            font-variant-numeric: tabular-nums;
+        }
+        .countdown-321 {
+            font-size: clamp(5rem, 12vmin, 9rem);
+            font-weight: 900;
+            color: var(--text-main);
+            animation: popIn 1s infinite;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            30% { transform: scale(1.2); opacity: 1; }
+            50% { transform: scale(1); opacity: 1; }
+            80% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.11);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        }
+        /* Geniş panel */
+        .game-panel{
+            width: min(96vw, 920px);
+            padding: clamp(18px, 2.5vw, 36px);
+            border-radius: 28px;
+        }
+        .start-panel{
+            width: min(96vw, 1080px);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Arka plan katmanları - hepsi pointer-events: none -->
+    <div class="bg-grid"></div>
+    <div class="bg-shapes">
+        <div class="shape" style="width: 46vw; height: 46vw; background: #f43f5e; top: -12%; left: -10%;"></div>
+        <div class="shape" style="width: 42vw; height: 42vw; background: #3b82f6; bottom: -12%; right: -8%; animation-delay: -5s;"></div>
+        <div class="shape" style="width: 36vw; height: 36vw; background: #8b5cf6; top: 32%; left: 36%; animation-delay: -10s;"></div>
+    </div>
+
+    <!-- LOGO: senin depodaki orjinal.svg -->
+    <div class="logo-container" aria-hidden="true">
+        <!-- Eğer dosya aynı klasörde değilse ./orjinal.svg veya /assets/orjinal.svg yap -->
+        <img src="orjinal.svg" alt="Oyun Logosu" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'">
+        <!-- fallback: svg bulunamazsa gizli kalır, hata vermez -->
+        <div style="display:none; background:rgba(255,255,255,0.1); padding:8px 14px; border-radius:10px; font-weight:800; color:white;">LOGO</div>
+    </div>
+
+    <div class="top-actions">
+        <button id="endGameBtn" class="btn-custom bg-slate-800/90 border border-slate-600 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hidden">
+            Oyunu Bitir 🛑
+        </button>
+    </div>
+
+    <div id="confettiArea" class="confetti-container"></div>
+
+    <!-- TAM EKRAN GRID -->
+    <div class="app-shell">
+        <!-- SOL YAN - ekranı dolduruyor, tıklamayı engellemiyor -->
+        <aside class="side side-left">
+            <div class="side-deco">DİNLE<br>YAZ<br>BUL</div>
+            <div class="side-card text-sm text-slate-300 leading-relaxed">
+                <b class="text-lg block mb-1">Nasıl Oynanır?</b>
+                1) Sayıyı dinle<br>
+                2) Süreyi başlat<br>
+                3) Göster ve sınıfı say
+            </div>
+        </aside>
+
+        <!-- ORTA - OYUN -->
+        <main class="center-stage">
+            <!-- Ekran 1: Başlangıç -->
+            <div id="screenStart" class="flex flex-col items-center gap-8 w-full start-panel text-center">
+                <h1 class="playfair text-[11vw] md:text-[84px] lg:text-[96px] leading-[0.9] font-bold drop-shadow-xl text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
+                    Sayıları Duy,<br>Doğru Yaz!
+                </h1>
+                <p class="text-[4.2vw] md:text-2xl text-slate-300 font-medium max-w-3xl">
+                    Sayıyı dinle, kağıdına yaz. Süre bitince cevabını kontrol et! Ekran artık tam genişlikte.
+                </p>
+                <button id="startNewGameBtn" class="btn-custom bg-gradient-to-r from-rose-500 to-pink-600 text-white text-[6vw] md:text-3xl font-black py-6 px-14 rounded-full shadow-[0_0_40px_rgba(244,63,94,0.6)]">
+                    🚀 OYUNA BAŞLA
+                </button>
+            </div>
+
+            <!-- Ekran 2: Oyun Alanı -->
+            <div id="screenGame" class="flex flex-col items-center gap-7 w-full hidden">
+                <div class="glass-panel game-panel flex flex-col items-center gap-7">
+                    <div id="numberBox" class="number-box">
+                        <div class="number-box-inner">
+                            <div class="number-box-front"><span>?</span></div>
+                            <div class="number-box-back" id="revealedNumber">42</div>
+                        </div>
+                    </div>
+
+                    <div id="statusArea" class="w-full h-28 flex items-center justify-center">
+                        <div id="countdown321" class="countdown-321 hidden">3</div>
+                        <div id="timerDisplay" class="timer-text hidden">15</div>
+                    </div>
+
+                    <div id="gameControls" class="flex flex-wrap items-center justify-center gap-4 w-full">
+                        <button id="repeatAudioBtn" class="btn-custom bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl flex-1 min-w-[180px] text-lg shadow-lg">
+                            🔊 Tekrar Söyle
+                        </button>
+                        <button id="startTimerBtn" class="btn-custom bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-2xl flex-1 min-w-[180px] text-lg shadow-lg">
+                            ⏳ Süreyi Başlat
+                        </button>
+                    </div>
+
+                    <button id="showBtn" class="btn-custom bg-amber-500 hover:bg-amber-400 text-white text-3xl md:text-4xl font-black py-5 px-10 rounded-2xl w-full shadow-[0_0_30px_rgba(245,158,11,0.5)] hidden">
+                        👀 GÖSTER
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ekran 3: Sonuç Girişi -->
+            <div id="screenInput" class="flex flex-col items-center gap-6 w-full hidden mt-6">
+                <div class="glass-panel game-panel max-w-[560px] w-full p-8 rounded-[28px] shadow-2xl">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-6 text-emerald-300">Harika! Kaç öğrenci doğru yazdı?</h2>
+                    <input type="number" id="correctCount" min="0" placeholder="Öğrenci sayısı..." class="w-full bg-slate-800 border-2 border-slate-600 text-white text-2xl p-4 rounded-xl text-center focus:outline-none focus:border-emerald-500 mb-6 font-bold pointer-events-auto">
+                    <button id="saveAndContinueBtn" class="btn-custom bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xl font-bold py-4 px-8 rounded-xl w-full shadow-lg">
+                        💾 Kaydet ve Yeni Sayıya Geç
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ekran 4: Bitiş Raporu -->
+            <div id="screenReport" class="flex flex-col items-center gap-6 w-full hidden">
+                <h1 class="playfair text-5xl md:text-7xl font-bold text-amber-400 drop-shadow-lg mb-2">Oyun Raporu 🏆</h1>
+                <div class="glass-panel w-[min(96vw,980px)] rounded-[28px] p-5 md:p-8 shadow-2xl max-h-[62vh] overflow-y-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b-2 border-slate-600 text-slate-300 text-lg md:text-xl">
+                                <th class="py-4 pl-4">Sorulan Sayı</th>
+                                <th class="py-4 text-right pr-4">Doğru Bilen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody" class="text-xl md:text-2xl font-bold"></tbody>
+                    </table>
+                </div>
+                <button id="restartTotalGameBtn" class="btn-custom bg-indigo-600 hover:bg-indigo-500 text-white text-2xl font-bold py-4 px-10 rounded-2xl shadow-lg mt-2">
+                    🔄 Yeni Bir Oyun Kur
+                </button>
+            </div>
+        </main>
+
+        <!-- SAĞ YAN -->
+        <aside class="side side-right items-end text-right">
+            <div class="side-deco">01<br>02<br>03<br>04<br>05</div>
+            <div class="side-card text-sm text-slate-300 text-left">
+                <b class="text-lg block mb-1">İpucu</b>
+                Ses gelmiyorsa tarayıcı sesine izin ver.<br>
+                Logo sol üstte sabit, <code>orjinal.svg</code> çağırılıyor.
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal -->
+    <div id="customModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-slate-800 border-2 border-slate-600 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+            <h3 class="text-2xl font-bold text-rose-400 mb-4" id="modalTitle">Uyarı</h3>
+            <p class="text-lg text-slate-200 mb-8" id="modalText">Mesaj</p>
+            <button id="closeModalBtn" class="btn-custom bg-slate-600 hover:bg-slate-500 text-white font-bold py-3 px-8 rounded-xl w-full">Tamam</button>
+        </div>
+    </div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration, vol) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        function playTick() { playTone(600, 'sine', 0.1, 0.1); }
+        function playBeep() { playTone(800, 'square', 0.2, 0.15); }
+        function playRevealSound() {
+            playTone(400, 'triangle', 0.1, 0.2);
+            setTimeout(() => playTone(600, 'triangle', 0.1, 0.2), 100);
+            setTimeout(() => playTone(800, 'triangle', 0.4, 0.2), 200);
+        }
+
+        let currentNumber = 0;
+        let gameRecords = [];
+        let timerInterval = null;
+        const speechSynth = window.speechSynthesis;
+
+        const screens = {
+            start: document.getElementById('screenStart'),
+            game: document.getElementById('screenGame'),
+            input: document.getElementById('screenInput'),
+            report: document.getElementById('screenReport')
+        };
+        const numberBox = document.getElementById('numberBox');
+        const revealedNumberEl = document.getElementById('revealedNumber');
+        const countdown321 = document.getElementById('countdown321');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const gameControls = document.getElementById('gameControls');
+        const showBtn = document.getElementById('showBtn');
+        const confettiArea = document.getElementById('confettiArea');
+        const correctCountInput = document.getElementById('correctCount');
+        const endGameBtn = document.getElementById('endGameBtn');
+
+        const modal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalText = document.getElementById('modalText');
+        function showModal(title, text){
+            modalTitle.textContent = title; modalText.textContent = text;
+            modal.classList.remove('hidden');
+        }
+        document.getElementById('closeModalBtn').onclick = () => modal.classList.add('hidden');
+
+        function showScreen(name){
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            if(name === 'game' || name === 'input'){
+                screens.game.classList.remove('hidden');
+                if(name === 'input') screens.input.classList.remove('hidden');
+            } else {
+                screens[name].classList.remove('hidden');
+            }
+            if(name === 'start') endGameBtn.classList.add('hidden');
+            else endGameBtn.classList.remove('hidden');
+        }
+
+        function getRandomNumber(){ return Math.floor(Math.random()*100)+1; }
+
+        function speakNumber(num){
+            speechSynth.cancel();
+            const utter = new SpeechSynthesisUtterance(num.toString());
+            utter.lang = 'tr-TR'; utter.rate = 0.85; utter.pitch = 1;
+            speechSynth.speak(utter);
+        }
+
+        function startNewRound(){
+            speechSynth.cancel();
+            clearInterval(timerInterval);
+            currentNumber = getRandomNumber();
+            revealedNumberEl.textContent = currentNumber;
+            numberBox.classList.remove('open');
+            showBtn.classList.add('hidden');
+            screens.input.classList.add('hidden');
+            countdown321.classList.add('hidden');
+            timerDisplay.classList.add('hidden');
+            timerDisplay.textContent = "15";
+            timerDisplay.style.color = 'var(--accent)';
+            gameControls.classList.remove('hidden');
+            showScreen('game');
+            setTimeout(() => speakNumber(currentNumber), 500);
+        }
+
+        document.getElementById('startNewGameBtn').onclick = () => {
+            gameRecords = [];
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            startNewRound();
+        };
+
+        document.getElementById('repeatAudioBtn').onclick = () => speakNumber(currentNumber);
+
+        document.getElementById('startTimerBtn').onclick = () => {
+            gameControls.classList.add('hidden');
+            countdown321.classList.remove('hidden');
+            let count321 = 3;
+            countdown321.textContent = count321;
+            playBeep();
+            let preTimer = setInterval(() => {
+                count321--;
+                if (count321 > 0) { countdown321.textContent = count321; playBeep(); }
+                else {
+                    clearInterval(preTimer);
+                    countdown321.classList.add('hidden');
+                    startMainTimer();
+                }
+            }, 1000);
+        };
+
+        function startMainTimer(){
+            timerDisplay.classList.remove('hidden');
+            let timeLeft = 15;
+            timerDisplay.textContent = timeLeft;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+                playTick();
+                if (timeLeft <= 3) timerDisplay.style.color = 'var(--primary)';
+                else timerDisplay.style.color = 'var(--accent)';
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerDisplay.classList.add('hidden');
+                    showBtn.classList.remove('hidden');
+                    playTone(500, 'sine', 0.5, 0.2);
+                }
+            }, 1000);
+        }
+
+        showBtn.onclick = () => {
+            showBtn.classList.add('hidden');
+            numberBox.classList.add('open');
+            playRevealSound();
+            fireConfetti();
+            setTimeout(() => {
+                screens.input.classList.remove('hidden');
+                correctCountInput.value = '';
+                correctCountInput.focus();
+            }, 1100);
+        };
+
+        function fireConfetti(){
+            const colors = ['#f43f5e', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6'];
+            confettiArea.innerHTML = '';
+            for (let i = 0; i < 70; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                conf.style.animationDelay = (Math.random() * 0.5) + 's';
+                const shapeType = Math.random();
+                if(shapeType > 0.6){ conf.style.borderRadius='50%'; conf.style.width='15px'; conf.style.height='15px'; }
+                else if (shapeType > 0.3){ conf.style.width='10px'; conf.style.height='10px'; }
+                confettiArea.appendChild(conf);
+            }
+            setTimeout(() => { confettiArea.innerHTML = ''; }, 4000);
+        }
+
+        document.getElementById('saveAndContinueBtn').onclick = () => {
+            const count = correctCountInput.value.trim();
+            if (count === '' || isNaN(count) || parseInt(count) < 0) {
+                showModal('Geçersiz Değer', 'Lütfen geçerli bir öğrenci sayısı giriniz.');
+                return;
+            }
+            gameRecords.push({ number: currentNumber, correct: parseInt(count) });
+            startNewRound();
+        };
+
+        endGameBtn.onclick = () => {
+            clearInterval(timerInterval);
+            speechSynth.cancel();
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+            if (gameRecords.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="2" class="py-6 text-center text-slate-400">Henüz kaydedilmiş bir veri yok.</td></tr>`;
+            } else {
+                gameRecords.forEach(rec => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-slate-700/50 hover:bg-slate-800/50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="py-4 pl-4 text-emerald-400">Sayfa Soru: <span class="text-3xl ml-2">${rec.number}</span></td>
+                        <td class="py-4 pr-4 text-right text-blue-300"><span class="text-3xl mr-2">${rec.correct}</span> Öğrenci</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+            showScreen('report');
+        };
+
+        document.getElementById('restartTotalGameBtn').onclick = () => showScreen('start');
+    </script>
+</body>
+</html>
